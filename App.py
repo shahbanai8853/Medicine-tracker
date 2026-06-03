@@ -70,7 +70,7 @@ HTML_TEMPLATE = """
             <label>Medicine Name:</label><br>
             <input type="text" name="name" required><br>
             
-            <label>Strip of (Capsules per Strip):</label><br>
+            <label>Strip of:</label><br>
             <input type="number" name="capsules_per_strip" required><br>
             
             <label>No. of Strips:</label><br>
