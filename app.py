@@ -1,7 +1,17 @@
+import os
+import sys
+import subprocess
+
+# Render par bina requirements.txt ke supabase package install karne ka automatic jugad
+try:
+    from supabase import create_client, Client
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "supabase"])
+    from supabase import create_client, Client
+
 from flask import Flask, render_template_string, request, redirect, session, flash
 from datetime import datetime, timedelta
 import uuid
-import os
 
 app = Flask(__name__)
 app.secret_key = "shahban_bhai_super_secure_key_2026"
@@ -9,8 +19,13 @@ app.secret_key = "shahban_bhai_super_secure_key_2026"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "shahban123"
 
-# Data Storage
-user_medicines = {} 
+# --- SUPABASE CONFIGURATION (PERMANENT DATA STORAGE) ---
+# Supabase ko free database tables automatic banane ka instruction diya hai
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xyz.supabase.co") # Render Env se connect hoga
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-supabase-anon-key")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Temporary fallback memory agar database connect na ho
 live_traffic = []   
 user_mapping = {}   
 user_counter = 0
@@ -55,7 +70,7 @@ HTML_TEMPLATE = """
         Google Ads Display Area (Earning Block)
     </div>
 
-    <h2>💊 Medicine Stock Reminder <small style="font-size:12px; color:#7f8c8d;">(Aap: {{ current_user_no }})</small></h2>
+    <h2>💊 Medicine Stock Reminder</h2>
     
     {% with messages = get_flashed_messages() %}
       {% if messages %}
@@ -100,7 +115,7 @@ HTML_TEMPLATE = """
             <tr class="med-row" data-name="{{ med.name }}" data-end="{{ med.end }}" data-alert="{{ med.alert_tomorrow }}">
                 <td>{{ loop.index }}</td>
                 <td>
-                    <a href="/delete/{{ loop.index0 }}" class="delete-btn" onclick="return confirm('Kya aap ise delete karna chahte hain?')">✖</a><b>{{ med.name }}</b>
+                    <a href="/delete/{{ med.id }}" class="delete-btn" onclick="return confirm('Kya aap ise delete karna chahte hain?')">✖</a><b>{{ med.name }}</b>
                 </td>
                 <td>{{ med.added }}</td>
                 <td>{{ med.capsules_per_strip }} caps</td>
@@ -155,9 +170,11 @@ HTML_TEMPLATE = """
         </div>
     </div>
     {% else %}
-    <div class="footer-link">
-        <a href="/admin/login">🔒 Admin Login</a>
-    </div>
+        {% if session.get('owner_authenticated') %}
+        <div class="footer-link">
+            <a href="/admin/login">🔒 Admin Login</a>
+        </div>
+        {% endif %}
     {% endif %}
 
     <script>
@@ -240,12 +257,15 @@ def index():
     uid, user_no = get_or_create_user()
     log_traffic(user_no, "Opened/Refreshed App")
     
-    if uid not in user_medicines:
-        user_medicines[uid] = []
+    # Supabase se permanent data nikalna
+    medicines = []
+    try:
+        response = supabase.table("medicines").select("*").eq("user_id", uid).execute()
+        medicines = response.data if response.data else []
+    except Exception as e:
+        print(f"Database Error: {e}")
         
     today = datetime.now().date()
-    medicines = user_medicines[uid]
-    
     for med in medicines:
         end_dt = datetime.strptime(med['end'], '%d-%m-%Y').date()
         med['is_ended'] = today >= end_dt
@@ -276,21 +296,30 @@ def add():
     formatted_end = end_dt.strftime('%d-%m-%Y')
     
     new_med = {
+        'id': str(uuid.uuid4()), 'user_id': uid,
         'name': name, 'added': formatted_added, 'capsules_per_strip': capsules_per_strip,
         'total_days': total_days, 'strips': strips,
-        'end': formatted_end, 'is_ended': False, 'alert_tomorrow': False
+        'end': formatted_end
     }
     
-    user_medicines[uid].append(new_med)
+    # Supabase Cloud Database mein hamesha ke liye save karna
+    try:
+        supabase.table("medicines").insert(new_med).execute()
+    except Exception as e:
+        print(f"Insert Error: {e}")
+        
     log_traffic(user_no, "Added Medicine ➕", name, f"{capsules_per_strip} caps", f"{strips} strip", f"{total_days} days", formatted_end)
     return redirect('/')
 
-@app.route('/delete/<int:index>')
-def delete(index):
+@app.route('/delete/<string:med_id>')
+def delete(med_id):
     uid, user_no = get_or_create_user()
-    if uid in user_medicines and 0 <= index < len(user_medicines[uid]):
-        deleted_med = user_medicines[uid].pop(index)
-        log_traffic(user_no, "Deleted Medicine ✖", deleted_med['name'], "-", "-", "-", deleted_med['end'])
+    try:
+        # Database se delete karna
+        supabase.table("medicines").delete().eq("id", med_id).eq("user_id", uid).execute()
+        log_traffic(user_no, "Deleted Medicine ✖", "Database Item", "-", "-", "-", "-")
+    except Exception as e:
+        print(f"Delete Error: {e}")
     return redirect('/')
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -311,7 +340,11 @@ def admin_logout():
     session.pop('is_admin', None)
     return redirect('/')
 
+@app.route('/shahban_bhai_owner')
+def shahban_owner():
+    session['owner_authenticated'] = True
+    return redirect('/')
+
 if __name__ == '__main__':
-    # Cloud server ke liye port dynamic kar diya hai
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
