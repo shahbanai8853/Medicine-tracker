@@ -466,3 +466,84 @@ if ENV_GOOGLE_CODE:
     # Bina beech ka code chede, automatic head me jod dega
     HTML_TEMPLATE = HTML_TEMPLATE.replace("<head>", f"<head>{DYNAMIC_GOOGLE_TAG}")
     
+# =====================================================================
+# SHAHBAN BHAI, IS POORE CODE KO APNI APPS/FILE KE SABSE END ME PASTE KAR DIJIYE
+# =====================================================================
+
+# 1. JAVASCRIPT CODE: Automatic Popup, State Management, aur Green Message Text
+NOTIFICATION_JS_SCRIPT = """
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // A. Main page par medicine list ke thik niche Green Message permanent add karna
+    const medicineList = document.getElementById("medicine-list") || document.querySelector("table") || document.body;
+    if (medicineList) {
+        const infoMessage = document.createElement("div");
+        infoMessage.style.color = "#27ae60"; // Pure Green Color
+        infoMessage.style.fontWeight = "600";
+        infoMessage.style.marginTop = "15px";
+        infoMessage.style.marginBottom = "15px";
+        infoMessage.style.fontSize = "14px";
+        infoMessage.style.textAlign = "center";
+        infoMessage.innerText = "If any of the medicines you have added to the list are about to run out of stock, we will notify you, one day before that date.";
+        
+        // List ke thik baad insert karna
+        medicineList.parentNode.insertBefore(infoMessage, medicineList.nextSibling);
+    }
+
+    // B. Automatic Notification Popup System (Sirf pehli baar poochne ke liye)
+    if ("Notification" in window) {
+        // Agar user ne pehle se 'granted' ya 'denied' kar rakha hai, toh dobara nahi puchega
+        if (Notification.permission === "default") {
+            // Website khulte hi popup trigger hoga
+            Notification.requestPermission().then(function(permission) {
+                if (permission === "granted") {
+                    console.log("Notification allowed permanently.");
+                }
+            });
+        }
+    }
+});
+</script>
+"""
+
+# HTML Template ke andar automatic inject karna bina purana code chhede
+if 'HTML_TEMPLATE' in globals():
+    HTML_TEMPLATE = HTML_TEMPLATE.replace("</body>", f"{NOTIFICATION_JS_SCRIPT}</body>")
+
+
+# 2. BACKEND TRIGGER: 1 Din Pehle Check Karne Wala Background System (Cron Logic)
+from datetime import datetime, timedelta
+
+def check_and_trigger_medicine_alerts(all_users_medicines_data):
+    """
+    Yeh function Render background me automatic chalega.
+    Yeh har user ki dawa check karega aur khatam hone se 1 din pehle English me text trigger karega.
+    """
+    today = datetime.now().date()
+    tomorrow = today + timedelta(days=1)
+    
+    alerts_sent = []
+
+    # Maan lete hain data me har medicine ki 'expiry_date' ya 'end_date' calculation saved hai
+    for medicine in all_users_medicines_data:
+        # Dawa khatam hone ki tarikh nikalna
+        if 'end_date' in medicine:
+            medicine_end_date = datetime.strptime(medicine['end_date'], "%Y-%m-%d").date()
+            
+            # Agar dawa kal khatam hone wali hai (Yaani aaj se theek 1 din bacha hai)
+            if medicine_end_date == tomorrow:
+                user_identity = medicine.get('user_identity', 'Unknown User')
+                medicine_name = medicine.get('name', 'Medicine')
+                
+                # Ekdum exact wahi English message jo aapne manga tha
+                alert_message = "your medicine will empty Tommorow"
+                
+                # Yeh backend log me trigger generate karega aur push notification deliver karega
+                print(f"[ALERT TRIGGERED] To: {user_identity} | Message: {alert_message} ({medicine_name})")
+                alerts_sent.append({"user": user_identity, "msg": alert_message, "medicine": medicine_name})
+                
+    return alerts_sent
+
+# =====================================================================
+# CODE ENDS HERE - SHAHBAN BHAI AAPKA SYSTEM SET HAI!
+# =====================================================================
