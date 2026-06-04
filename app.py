@@ -293,7 +293,7 @@ def index():
     # Supabase se permanent data nikalna
     medicines = []
     try:
-        ```python
+        
   response = supabase.table("medicines").select("*").execute()
         medicines = response.data if response.data else []
     except Exception as e:
