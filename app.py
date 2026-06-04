@@ -8,33 +8,41 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "supabase"])
     from supabase import create_client, Client
 
-from flask import Flask, render_template_string, request, redirect, session, flash
+from flask import Flask, render_template_string, request, redirect, make_response, flash, session
 from datetime import datetime, timedelta
 import uuid
 
 app = Flask(__name__)
+# Secure secret key for sessions
 app.secret_key = "Shahban_bhai_super_secure_key_2026"
+
+# Updated Admin Login Credentials
+ADMIN_USER = "Shahban Admin"
+ADMIN_PASS = " Shahban@0099"
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xyz.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-supabase-anon-key")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Global Live Traffic Logs Storage
 live_traffic = []
+user_mapping = {}
 
-def get_or_create_user():
-    global live_traffic
-    if 'user_id' not in session:
-        session['user_id'] = str(uuid.uuid4())
-    uid = session['user_id']
-    
-    if 'user_no' not in session:
-        existing_users = []
-        for log in live_traffic:
-            if log['user_no'] not in existing_users:
-                existing_users.append(log['user_no'])
-        session['user_no'] = f"User-{len(existing_users) + 1}"
+def get_or_create_user(req):
+    global live_traffic, user_mapping
+    uid = req.cookies.get('shahban_user_uuid')
+    if not uid:
+        uid = str(uuid.uuid4())
+        is_new = True
+    else:
+        is_new = False
         
-    return uid, session['user_no']
+    if uid not in user_mapping:
+        unique_users = len(user_mapping) + 1
+        user_mapping[uid] = f"User {unique_users}"
+        
+    user_no = user_mapping[uid]
+    return uid, user_no, is_new
 
 def log_traffic(user_no, action, med_name="-", capsules="-", strips="-", total_days="-", end_date="-"):
     now = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
@@ -50,6 +58,9 @@ def log_traffic(user_no, action, med_name="-", capsules="-", strips="-", total_d
     }
     live_traffic.insert(0, log_entry)
 
+# --- HTML TEMPLATES ---
+
+# Main App Page
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -154,9 +165,128 @@ HTML_TEMPLATE = """
 </html>
 """
 
+# Admin Secure Login Page Template
+LOGIN_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login</title>
+    <style>
+        body { font-family: Arial; background: #2c3e50; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: white; color: #333; padding: 25px; border-radius: 8px; width: 300px; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #3498db; color: white; border: none; padding: 10px; width: 97%; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .err { color: red; font-size: 13px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h3>🔒 Admin Security Access</h3>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="err">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        <form action="/shahban-admin-login" method="POST">
+            <label>User ID:</label>
+            <input type="text" name="username" required>
+            <label>Password:</label>
+            <input type="password" name="password" required>
+            <button type="submit">Verify & Login</button>
+        </form>
+    </div>
+</body>
+</html>
+"""
+
+# Secret Admin Dashboard Template (With Search Box)
+ADMIN_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Live Traffic</title>
+    <style>
+        body { font-family: Arial; margin: 15px; background: #2c3e50; color: white; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; }
+        .back-link { color: #2ecc71; text-decoration: none; font-weight: bold; }
+        .logout-link { color: #e74c3c; text-decoration: none; font-weight: bold; }
+        .search-box { width: 95%; padding: 10px; margin: 20px 0; border: none; border-radius: 4px; font-size: 15px; }
+        .table-container { overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.3); color: #333; }
+        table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; font-size: 13px; }
+        th { background: #34495e; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+    </style>
+    <script>
+        function filterTraffic() {
+            let input = document.getElementById('adminSearch').value.toLowerCase();
+            let rows = document.querySelectorAll('#trafficTable tbody tr');
+            rows.forEach(row => {
+                let text = row.innerText.toLowerCase();
+                if(text.includes(input)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+
+    <div class="top-bar">
+        <a href="/" class="back-link">⬅️ Back to App</a>
+        <a href="/shahban-admin-logout" class="logout-link">❌ Logout Admin</a>
+    </div>
+    
+    <h2>📊 Shahban Bhai's Live Traffic Admin Panel</h2>
+
+    <input type="text" id="adminSearch" class="search-box" onkeyup="filterTraffic()" placeholder="Search traffic logs by User, Activity, Medicine name...">
+
+    <div class="table-container">
+        <table id="trafficTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User Identity</th>
+                    <th>Activity</th>
+                    <th>Medicine Name</th>
+                    <th>Capsules/Strip</th>
+                    <th>Total Strips</th>
+                    <th>Total Days</th>
+                    <th>End Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in traffic %}
+                <tr>
+                    <td>{{ log.time }}</td>
+                    <td><strong>{{ log.user_no }}</strong></td>
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.med_name }}</td>
+                    <td>{{ log.capsules }}</td>
+                    <td>{{ log.strips }}</td>
+                    <td>{{ log.total_days }}</td>
+                    <td>{{ log.end_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>
+"""
+
+# --- ROUTES ---
+
 @app.route('/')
 def index():
-    uid, user_no = get_or_create_user()
+    uid, user_no, is_new = get_or_create_user(request)
     log_traffic(user_no, "Opened/Refreshed App")
     
     medicines = []
@@ -178,11 +308,13 @@ def index():
         except Exception:
             med['is_ended'] = False
 
-    return render_template_string(HTML_TEMPLATE, medicines=medicines)
+    resp = make_response(render_template_string(HTML_TEMPLATE, medicines=medicines))
+    resp.set_cookie('shahban_user_uuid', uid, max_age=30*24*60*60)
+    return resp
 
 @app.route('/add', methods=['POST'])
 def add():
-    uid, user_no = get_or_create_user()
+    uid, user_no, _ = get_or_create_user(request)
     name = request.form.get('name')
     capsules_per_strip = int(request.form.get('capsules_per_strip'))
     strips = int(request.form.get('strips'))
@@ -195,6 +327,8 @@ def add():
 
     added_dt = datetime.now().date()
     end_dt = added_dt + timedelta(days=total_days)
+
+    log_traffic(user_no, "Added Medicine", name, capsules_per_strip, strips, total_days, end_dt.strftime('%d-%m-%Y'))
 
     new_med = {
         'id': str(uuid.uuid4()),
@@ -217,11 +351,36 @@ def add():
 
 @app.route('/delete/<string:med_id>')
 def delete(med_id):
-    uid, user_no = get_or_create_user()
+    uid, user_no, _ = get_or_create_user(request)
+    log_traffic(user_no, f"Deleted Medicine Entry (ID: {med_id})")
     try:
         supabase.table("medicines").delete().eq("id", med_id).eq("user_id", uid).execute()
     except Exception as e:
         flash(f"Delete Error: {e}")
+    return redirect('/')
+
+# Handle Secret Admin Routing & Authentication
+@app.route('/shahban-admin')
+def admin_panel():
+    if session.get('admin_logged_in'):
+        return render_template_string(ADMIN_TEMPLATE, traffic=live_traffic)
+    return render_template_string(LOGIN_TEMPLATE)
+
+@app.route('/shahban-admin-login', methods=['POST'])
+def admin_login_action():
+    username = request.form.get('username')
+    password = request.form.get('password')
+    
+    if username == ADMIN_USER and password == ADMIN_PASS:
+        session['admin_logged_in'] = True
+        return redirect('/shahban-admin')
+    else:
+        flash("You have entered wrong username or password, please try again!")
+        return redirect('/shahban-admin')
+
+@app.route('/shahban-admin-logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
     return redirect('/')
 
 if __name__ == '__main__':
