@@ -8,6 +8,13 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "supabase"])
     from supabase import create_client, Client
 
+# India ka sahi time dikhane ke liye module check aur install
+try:
+    import pytz
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pytz"])
+    import pytz
+
 from flask import Flask, render_template_string, request, redirect, make_response, flash, session
 from datetime import datetime, timedelta
 import uuid
@@ -16,9 +23,12 @@ app = Flask(__name__)
 # Secure secret key for sessions
 app.secret_key = "Shahban_bhai_super_secure_key_2026"
 
-# Updated Admin Login Credentials
+# Fixed Admin Login Credentials (Vahi purane credentials hain, no space)
 ADMIN_USER = "Shahban Admin"
-ADMIN_PASS = " Shahban@0099"
+ADMIN_PASS = "Shahban@0099"
+
+# Indian Standard Time (IST) Zone define kiya hai
+IST = pytz.timezone('Asia/Kolkata')
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xyz.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-supabase-anon-key")
@@ -45,7 +55,8 @@ def get_or_create_user(req):
     return uid, user_no, is_new
 
 def log_traffic(user_no, action, med_name="-", capsules="-", strips="-", total_days="-", end_date="-"):
-    now = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+    # Server ke badle ab yeh strictly India ke time par chalega
+    now = datetime.now(IST).strftime('%d-%m-%Y %H:%M:%S')
     log_entry = {
         'user_no': user_no, 
         'action': action, 
@@ -300,7 +311,8 @@ def index():
         print(f"Database Error: {e}")
         flash(f"Database Sync Error: {e}")
 
-    today = datetime.now().date()
+    # Index page date calculation using India Time
+    today = datetime.now(IST).date()
     for med in medicines:
         try:
             end_dt = datetime.strptime(med['end'], '%d-%m-%Y').date()
@@ -325,7 +337,8 @@ def add():
         flash(f"Invalid calculation for '{name}'. Shortage of capsules!")
         return redirect('/')
 
-    added_dt = datetime.now().date()
+    # Form Submission Date calculation using India Time
+    added_dt = datetime.now(IST).date()
     end_dt = added_dt + timedelta(days=total_days)
 
     log_traffic(user_no, "Added Medicine", name, capsules_per_strip, strips, total_days, end_dt.strftime('%d-%m-%Y'))
