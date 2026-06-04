@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 
-# Render par bina requirements.txt ke supabase package install karne ka automatic jugad
+# Automatic supabase package installation
 try:
     from supabase import create_client, Client
 except ImportError:
@@ -22,12 +22,11 @@ app.secret_key = "shahban_bhai_super_secure_key_2026"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "shahban123"
 
-# --- SUPABASE CONFIGURATION (PERMANENT DATA STORAGE) ---
+# --- SUPABASE CONFIGURATION ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xyz.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-supabase-anon-key")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Temporary fallback memory agar database connect na ho
 live_traffic = []
 user_mapping = {}
 user_counter = 0
@@ -53,8 +52,6 @@ HTML_TEMPLATE = """
         .delete-btn { color: #e74c3c; font-size: 11px; text-decoration: none; font-weight: bold; opacity: 0.7; margin-left: 5px; }
         .delete-btn:hover { opacity: 1; color: #c0392b; }
         .ad-space { background: #eef2f5; border: 2px dashed #bdc3c7; padding: 10px; text-align: center; margin: 15px 0; font-size: 12px; color: #7f8c8d; }
-        .footer-link { text-align: center; margin-top: 30px; font-size: 12px; }
-        .footer-link a { color: #7f8c8d; text-decoration: none; }
         .admin-box { background: #2c3e50; color: white; padding: 15px; border-radius: 8px; margin-top: 30px; }
         .admin-table th { background: #34495e; }
         .admin-table td { color: #333; background: #f8f9fa; }
@@ -90,13 +87,8 @@ HTML_TEMPLATE = """
             <label>No. of Days:</label><br>
             <input type="number" name="days" required><br>
 
-            <button type="submit" style="margin-top: 15px; width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">Add Medicine</button>
+            <button type="submit">Add Medicine</button>
         </form>
-    </div>
-
-    <!-- Google style Search Box by Shahban Bhai -->
-    <div style="margin: 15px 0;">
-        <input type="text" id="shahbanSearch" onkeyup="searchTable()" placeholder="🔍 Search anything (User 1, Date, Strips, Days...)" style="width: 100%; padding: 12px; border: 2px solid #2c3e50; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none;">
     </div>
 
     <h3>📋 Your Medicines List</h3>
@@ -140,32 +132,17 @@ HTML_TEMPLATE = """
         Responsive Ad Unit
     </div>
 
-    <script>
-    function searchTable() {
-        let input = document.getElementById("shahbanSearch").value.toUpperCase();
-        let table = document.querySelector("table");
-        let tr = table.getElementsByTagName("tr");
-
-        for (let i = 1; i < tr.length; i++) {
-            let rowText = tr[i].textContent || tr[i].innerText;
-            
-            if (input === "") {
-                tr[i].style.display = "";
-                tr[i].style.backgroundColor = "";
-            } else if (rowText.toUpperCase().indexOf(input) > -1) {
-                tr[i].style.display = "";
-                tr[i].style.backgroundColor = "#fff9c4"; 
-            } else {
-                tr[i].style.display = "none";
-            }
-        }
-    }
-    </script>
-
+    <!-- Admin Panel (Sirf logged-in admin/owner ko hi dikhega, search box ke sath) -->
     {% if is_admin %}
     <div class="admin-box">
         <a href="/admin/logout" style="background: #e74c3c; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; float: right; font-size: 12px;">Logout</a>
         <h3>🛡️ Owner Control Room (Live Traffic & Data Monitor)</h3>
+        
+        <!-- Search Box sirf admin room mein hai ab -->
+        <div style="margin: 15px 0;">
+            <input type="text" id="shahbanSearch" onkeyup="searchTable()" placeholder="🔍 Admin Search (User 1, Date, Medicine, Days...)" style="width: 100%; padding: 10px; border-radius: 5px; border: none; font-size: 15px; color: #333;">
+        </div>
+
         <div class="table-container">
             <table class="admin-table">
                 <tr>
@@ -179,7 +156,7 @@ HTML_TEMPLATE = """
                     <th style="color:white;">Timestamp</th>
                 </tr>
                 {% for log in traffic %}
-                <tr>
+                <tr class="traffic-row">
                     <td><b>{{ log.user_no }}</b></td>
                     <td>{{ log.action }}</td>
                     <td>{{ log.med_name }}</td>
@@ -193,10 +170,26 @@ HTML_TEMPLATE = """
             </table>
         </div>
     </div>
-    {% else %}
-    <div class="footer-link">
-        <a href="/admin/login">🔒 Admin Login</a>
-    </div>
+
+    <script>
+    function searchTable() {
+        let input = document.getElementById("shahbanSearch").value.toUpperCase();
+        let rows = document.querySelectorAll(".traffic-row");
+
+        for (let i = 0; i < rows.length; i++) {
+            let rowText = rows[i].textContent || rows[i].innerText;
+            if (input === "") {
+                rows[i].style.display = "";
+                rows[i].style.backgroundColor = "";
+            } else if (rowText.toUpperCase().indexOf(input) > -1) {
+                rows[i].style.display = "";
+                rows[i].style.backgroundColor = "#fff9c4"; 
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    }
+    </script>
     {% endif %}
 
     <script>
