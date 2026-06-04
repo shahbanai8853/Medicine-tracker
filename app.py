@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 
-# Automatic supabase package installation
+# Render par bina requirements.txt ke supabase package install karne ka automatic jugad
 try:
     from supabase import create_client, Client
 except ImportError:
@@ -10,26 +10,52 @@ except ImportError:
     from supabase import create_client, Client
 
 from flask import Flask, render_template_string, request, redirect, session, flash
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import uuid
 
-# India Time (IST) setup
-IST = timezone(timedelta(hours=5, minutes=30))
-
 app = Flask(__name__)
-app.secret_key = "shahban_bhai_super_secure_key_2026"
+app.secret_key = "Shahban_bhai_super_secure_key_2026"
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "shahban123"
 
-# --- SUPABASE CONFIGURATION ---
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xyz.supabase.co")
+# --- SUPABASE CONFIGURATION (PERMANENT DATA STORAGE) ---
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xyz.supabase.co")  # Render Env se connect hoga
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "your-supabase-anon-key")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Temporary fallback memory agar database connect na ho
 live_traffic = []
-user_mapping = {}
-user_counter = 0
+
+def get_or_create_user():
+    global live_traffic
+    if 'user_id' not in session:
+        session['user_id'] = str(uuid.uuid4())
+    uid = session['user_id']
+    
+    # User number assign karne ka logic
+    if 'user_no' not in session:
+        existing_users = []
+        for log in live_traffic:
+            if log['user_no'] not in existing_users:
+                existing_users.append(log['user_no'])
+        session['user_no'] = f"User-{len(existing_users) + 1}"
+        
+    return uid, session['user_no']
+
+def log_traffic(user_no, action, med_name="-", capsules="-", strips="-", total_days="-", end_date="-", time_str="-"):
+    now = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+    log_entry = {
+        'user_no': user_no, 
+        'action': action, 
+        'med_name': med_name,
+        'capsules': capsules, 
+        'strips': strips, 
+        'total_days': total_days, 
+        'end_date': end_date, 
+        'time': now
+    }
+    live_traffic.insert(0, log_entry)
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -41,7 +67,7 @@ HTML_TEMPLATE = """
         body { font-family: Arial; margin: 15px; background: #f4f6f9; color: #333; }
         .box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
         input { width: 90%; padding: 8px; margin: 5px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #27ae60; color: white; border: none; padding: 10px; width: 95%; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button { background: #27ae60; color: white; border: none; padding: 10px; width: 95%; border-radius: 4px; font-weight: bold; cursor: pointer; }
         .error-alert { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 12px; border-radius: 5px; margin-bottom: 15px; }
         .table-container { overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         table { width: 100%; border-collapse: collapse; white-space: nowrap; }
@@ -49,9 +75,11 @@ HTML_TEMPLATE = """
         th { background: #2c3e50; color: white; }
         .remained { background: #2ecc71; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .ended { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .delete-btn { color: #e74c3c; font-size: 11px; text-decoration: none; font-weight: bold; opacity: 0.7; margin-left: 5px; }
+        .delete-btn { color: #e74c3c; font-size: 11px; text-decoration: none; font-weight: bold; opacity: 0.75; margin-left: 5px; }
         .delete-btn:hover { opacity: 1; color: #c0392b; }
         .ad-space { background: #eef2f5; border: 2px dashed #bdc3c7; padding: 10px; text-align: center; margin: 15px 0; font-size: 12px; color: #7f8c8d; }
+        .footer-link { text-align: center; margin-top: 30px; font-size: 12px; }
+        .footer-link a { color: #7f8c8d; text-decoration: none; }
         .admin-box { background: #2c3e50; color: white; padding: 15px; border-radius: 8px; margin-top: 30px; }
         .admin-table th { background: #34495e; }
         .admin-table td { color: #333; background: #f8f9fa; }
@@ -68,7 +96,7 @@ HTML_TEMPLATE = """
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         {% for message in messages %}
-          <div class="error-alert">⚠️ Error: {{ message }}</div>
+          <div class="error-alert">⚠️ {{ message }}</div>
         {% endfor %}
       {% endif %}
     {% endwith %}
@@ -79,7 +107,7 @@ HTML_TEMPLATE = """
             <input type="text" name="name" required><br>
 
             <label>Strip of:</label><br>
-            <input type="number" name="capsules_per_strip" required><br>
+            <input type="number" name="capsules_per_strip" placeholder="Capsules per strip" required><br>
 
             <label>No. of Strips:</label><br>
             <input type="number" name="strips" required><br>
@@ -87,44 +115,51 @@ HTML_TEMPLATE = """
             <label>No. of Days:</label><br>
             <input type="number" name="days" required><br>
 
-            <button type="submit">Add Medicine</button>
+            <button type="submit" style="margin-top: 15px;">Add Medicine</button>
         </form>
+    </div>
+
+    <div style="margin: 15px 0;">
+        <input type="text" id="shahbanSearch" onkeyup="searchTable()" placeholder="🔍 Search anything (Medicine Name, Date, Status...)" style="width: 100%; padding: 10px; border: 2px solid #2c3e50; border-radius: 8px;">
     </div>
 
     <h3>📋 Your Medicines List</h3>
     <div class="table-container">
         <table>
-            <tr>
-                <th>S.No.</th>
-                <th>Medicine Name</th>
-                <th>Added Date</th>
-                <th>Capsules/Strip</th>
-                <th>Total Strips</th>
-                <th>Total Days</th>
-                <th>End Date</th>
-                <th>Status</th>
-            </tr>
-            {% for med in medicines %}
-            <tr class="med-row" data-name="{{ med.name }}" data-end="{{ med.end }}" data-alert="{{ med.alert_tomorrow }}">
-                <td>{{ loop.index }}</td>
-                <td>
-                    {{ med.name }}
-                    <a href="/delete/{{ med.id }}" class="delete-btn" onclick="return confirm('Kya aap ise delete karna chahte hain?')">❌</a>
-                </td>
-                <td>{{ med.added }}</td>
-                <td>{{ med.capsules_per_strip }} caps</td>
-                <td>{{ med.strips }} strip</td>
-                <td>{{ med.total_days }} days</td>
-                <td>{{ med.end }}</td>
-                <td>
-                    {% if med.is_ended %}
-                    <span class="ended">❌ Ended</span>
-                    {% else %}
-                    <span class="remained">✅ Remained</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
+            <thead>
+                <tr>
+                    <th>S.No.</th>
+                    <th>Medicine Name</th>
+                    <th>Added Date</th>
+                    <th>Capsules/Strip</th>
+                    <th>Total Strips</th>
+                    <th>Total Days</th>
+                    <th>End Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for med in medicines %}
+                <tr class="med-row" data-name="{{ med.name }}" data-end="{{ med.end }}" data-alert="{{ 'True' if med.alert_tomorrow else 'False' }}">
+                    <td>{{ loop.index }} 
+                        <a href="/delete/{{ med.id }}" class="delete-btn" onclick="return confirm('Kya aap ise delete karna chahte hain?')">❌</a>
+                    </td>
+                    <td><strong>{{ med.name }}</strong></td>
+                    <td>{{ med.added }}</td>
+                    <td>{{ med.capsules_per_strip }} caps</td>
+                    <td>{{ med.strips }} strip</td>
+                    <td>{{ med.total_days }} days</td>
+                    <td>{{ med.end }}</td>
+                    <td>
+                        {% if med.is_ended %}
+                            <span class="ended">❌ Ended</span>
+                        {% else %}
+                            <span class="remained">✅ Remained</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 
@@ -132,67 +167,27 @@ HTML_TEMPLATE = """
         Responsive Ad Unit
     </div>
 
-    <!-- Admin Panel (Sirf logged-in admin/owner ko hi dikhega, search box ke sath) -->
-    {% if is_admin %}
-    <div class="admin-box">
-        <a href="/admin/logout" style="background: #e74c3c; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; float: right; font-size: 12px;">Logout</a>
-        <h3>🛡️ Owner Control Room (Live Traffic & Data Monitor)</h3>
-        
-        <!-- Search Box sirf admin room mein hai ab -->
-        <div style="margin: 15px 0;">
-            <input type="text" id="shahbanSearch" onkeyup="searchTable()" placeholder="🔍 Admin Search (User 1, Date, Medicine, Days...)" style="width: 100%; padding: 10px; border-radius: 5px; border: none; font-size: 15px; color: #333;">
-        </div>
-
-        <div class="table-container">
-            <table class="admin-table">
-                <tr>
-                    <th style="color:white;">User ID</th>
-                    <th style="color:white;">Action</th>
-                    <th style="color:white;">Medicine</th>
-                    <th style="color:white;">Caps/Strip</th>
-                    <th style="color:white;">Strips</th>
-                    <th style="color:white;">Days</th>
-                    <th style="color:white;">End Date</th>
-                    <th style="color:white;">Timestamp</th>
-                </tr>
-                {% for log in traffic %}
-                <tr class="traffic-row">
-                    <td><b>{{ log.user_no }}</b></td>
-                    <td>{{ log.action }}</td>
-                    <td>{{ log.med_name }}</td>
-                    <td>{{ log.capsules }}</td>
-                    <td>{{ log.strips }}</td>
-                    <td>{{ log.total_days }}</td>
-                    <td>{{ log.end_date }}</td>
-                    <td>{{ log.time }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-        </div>
-    </div>
-
     <script>
     function searchTable() {
         let input = document.getElementById("shahbanSearch").value.toUpperCase();
-        let rows = document.querySelectorAll(".traffic-row");
+        let table = document.querySelector("table");
+        let tr = table.getElementsByTagName("tr");
 
-        for (let i = 0; i < rows.length; i++) {
-            let rowText = rows[i].textContent || rows[i].innerText;
+        // Loop index 1 se shuru hoga taaki header hide na ho
+        for (let i = 1; i < tr.length; i++) {
+            let rowText = tr[i].textContent || tr[i].innerText;
             if (input === "") {
-                rows[i].style.display = "";
-                rows[i].style.backgroundColor = "";
+                tr[i].style.display = "";
+                tr[i].style.backgroundColor = "";
             } else if (rowText.toUpperCase().indexOf(input) > -1) {
-                rows[i].style.display = "";
-                rows[i].style.backgroundColor = "#fff9c4"; 
+                tr[i].style.display = "";
+                tr[i].style.backgroundColor = "#fff9c4"; // Highlight match yellow color
             } else {
-                rows[i].style.display = "none";
+                tr[i].style.display = "none";
             }
         }
     }
-    </script>
-    {% endif %}
 
-    <script>
     document.addEventListener('DOMContentLoaded', function () {
         if (Notification.permission !== "granted" && Notification.permission !== "denied") {
             Notification.requestPermission();
@@ -209,13 +204,51 @@ HTML_TEMPLATE = """
 
             if (isAlertTomorrow && Notification.permission === "granted") {
                 new Notification("💊 Medicine Stock Warning Alert!", {
-                    body: "Shahban Bhai, aapki dawa " + medName + " kal (" + endDate + ") ko khatam hone wali hai!",
+                    body: "Shahban Bhai, aapki dawa '" + medName + "' kal (" + endDate + ") ko khatam hone wali hai.",
                     icon: "https://cdn-icons-png.flaticon.com/512/822/822143.png"
                 });
             }
         });
     }
     </script>
+
+    {% if is_admin %}
+    <div class="admin-box">
+        <a href="/admin/logout" style="background:#e74c3c; color: white; padding: 5px 10px; text-decoration:none; float:right; border-radius:4px; font-size:12px;">Logout</a>
+        <h3>🛡️ Owner Control Room (Live Traffic & Data Monitor)</h3>
+        <div class="table-container">
+            <table class="admin-table">
+                <tr>
+                    <th>User ID</th>
+                    <th>Action</th>
+                    <th>Medicine</th>
+                    <th>Caps/Strip</th>
+                    <th>Strips</th>
+                    <th>Days</th>
+                    <th>End Date</th>
+                    <th>Timestamp</th>
+                </tr>
+                {% for log in traffic %}
+                <tr>
+                    <td><b>{{ log.user_no }}</b></td>
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.med_name }}</td>
+                    <td>{{ log.capsules }}</td>
+                    <td>{{ log.strips }}</td>
+                    <td>{{ log.total_days }}</td>
+                    <td>{{ log.end_date }}</td>
+                    <td>{{ log.time }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    {% else %}
+        <div class="footer-link">
+            <a href="/admin/login">🔒 Admin Login</a>
+        </div>
+    {% endif %}
+
 </body>
 </html>
 """
@@ -228,15 +261,15 @@ LOGIN_TEMPLATE = """
     <title>Admin Login</title>
     <style>
         body { font-family: Arial; margin: 30px; background: #f4f6f9; text-align: center; }
-        .login-box { max-width: 320px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .login-box { max-width: 320px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-top: 10%; }
         input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #2c3e50; color: white; border: none; padding: 10px; width: 96%; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button { background: #2c3e50; color: white; border: none; padding: 10px; width: 96%; border-radius: 4px; font-weight: bold; cursor: pointer; }
         .error { color: red; font-size: 14px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div class="login-box">
-        <h3>🔑 Control Room Login</h3>
+        <h3>Control Room Login</h3>
         {% if error %}<p class="error">{{ error }}</p>{% endif %}
         <form action="/admin/login" method="POST">
             <input type="text" name="username" placeholder="Username" required><br>
@@ -244,28 +277,11 @@ LOGIN_TEMPLATE = """
             <button type="submit">Verify & Entry</button>
         </form>
         <br>
-        <a href="/" style="color: #7f8c8d; text-decoration:none; font-size:14px;">← Back to App</a>
+        <a href="/" style="color:#7f8c8d; text-decoration:none; font-size:14px;">← Back to App</a>
     </div>
 </body>
 </html>
 """
-
-def get_or_create_user():
-    global user_counter
-    if 'user_id' not in session:
-        session['user_id'] = str(uuid.uuid4())
-    uid = session['user_id']
-    if uid not in user_mapping:
-        user_counter += 1
-        user_mapping[uid] = f"User-{user_counter}"
-    return uid, user_mapping[uid]
-
-def log_traffic(user_no, action, med_name="-", capsules="-", strips="-", total_days="-", end_date="-"):
-    now = datetime.now(IST).strftime('%d-%m-%Y %H:%M:%S')
-    live_traffic.insert(0, {
-        'user_no': user_no, 'action': action, 'med_name': med_name,
-        'capsules': capsules, 'strips': strips, 'total_days': total_days, 'end_date': end_date, 'time': now
-    })
 
 @app.route('/')
 def index():
@@ -274,19 +290,33 @@ def index():
     
     medicines = []
     try:
-        response = supabase.table("medicines").select("*").execute()
-        medicines = response.data if response.data else []
+        # Supabase se data query karna bina kisi format issue ke
+        response = supabase.table("medicines").select("*").eq("user_id", uid).execute()
+        
+        # Sahi tarike se data extract karne ka fallback logic
+        if hasattr(response, 'data') and response.data is not None:
+            medicines = response.data
+        elif isinstance(response, list):
+            medicines = response
+        else:
+            medicines = getattr(response, 'data', [])
+            
     except Exception as e:
         print(f"Database Error: {e}")
+        flash(f"Database Filter Error: {e}")
 
-    today = datetime.now(IST).date()
+    today = datetime.now().date()
     for med in medicines:
-        end_dt = datetime.strptime(med['end'], '%d-%m-%Y').date()
-        med['is_ended'] = today >= end_dt
-        med['alert_tomorrow'] = (end_dt - today).days == 1
+        try:
+            end_dt = datetime.strptime(med['end'], '%d-%m-%Y').date()
+            med['is_ended'] = today >= end_dt
+            med['alert_tomorrow'] = (end_dt - today).days == 1
+        except Exception:
+            med['is_ended'] = False
+            med['alert_tomorrow'] = False
 
     is_admin = session.get('is_admin', False)
-    return render_template_string(HTML_TEMPLATE, medicines=medicines, traffic=live_traffic, current_user=user_no, is_admin=is_admin)
+    return render_template_string(HTML_TEMPLATE, medicines=medicines, traffic=live_traffic, is_admin=is_admin)
 
 @app.route('/add', methods=['POST'])
 def add():
@@ -298,21 +328,25 @@ def add():
 
     total_capsules_available = capsules_per_strip * strips
     if total_days > total_capsules_available:
-        error_msg = f"Invalid Calculation for '{name}'. You have only {total_capsules_available} capsules available!"
+        error_msg = f"Invalid calculation for '{name}'. You have only {total_capsules_available} capsules in stock, but you entered {total_days} Days!"
         flash(error_msg)
-        log_traffic(user_no, "Failed Add (Error: Invalid Days)", name, capsules_per_strip, strips, total_days)
+        log_traffic(user_no, "Failed Add (Error: Invalid Days)", name, str(capsules_per_strip), str(strips), str(total_days))
         return redirect('/')
 
-    added_dt = datetime.now(IST).date()
+    added_dt = datetime.now().date()
     end_dt = added_dt + timedelta(days=total_days)
 
     formatted_added = added_dt.strftime('%d-%m-%Y')
     formatted_end = end_dt.strftime('%d-%m-%Y')
 
     new_med = {
-        'id': str(uuid.uuid4()), 'user_id': uid,
-        'name': name, 'added': formatted_added, 'capsules_per_strip': capsules_per_strip,
-        'total_days': total_days, 'strips': strips,
+        'id': str(uuid.uuid4()),
+        'user_id': uid,
+        'name': name,
+        'added': formatted_added,
+        'capsules_per_strip': capsules_per_strip,
+        'strips': strips,
+        'total_days': total_days,
         'end': formatted_end
     }
 
@@ -320,19 +354,20 @@ def add():
         supabase.table("medicines").insert(new_med).execute()
     except Exception as e:
         print(f"Insert Error: {e}")
+        flash(f"Supabase Save Error: {e}")
 
-    log_traffic(user_no, "Added Medicine ➕", name, capsules_per_strip, strips, total_days, formatted_end)
+    log_traffic(user_no, "Added Medicine ➕", name, str(capsules_per_strip), str(strips), str(total_days), formatted_end)
     return redirect('/')
 
 @app.route('/delete/<string:med_id>')
 def delete(med_id):
     uid, user_no = get_or_create_user()
     try:
-        supabase.table("medicines").delete().eq("id", med_id).execute()
+        supabase.table("medicines").delete().eq("id", med_id).eq("user_id", uid).execute()
+        log_traffic(user_no, "Deleted Medicine ❌", "Database Item", "-", "-", "-", "-")
     except Exception as e:
         print(f"Delete Error: {e}")
-        
-    log_traffic(user_no, "Deleted Medicine ❌", "Database Item")
+        flash(f"Delete Error: {e}")
     return redirect('/')
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -354,5 +389,4 @@ def admin_logout():
     return redirect('/')
 
 if __name__ == '__main__':
-    app.run(debug=True)
-    
+    app.run(host='0.0.0.0', port=10000, debug=True)
