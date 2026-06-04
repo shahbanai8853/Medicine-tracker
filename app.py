@@ -80,23 +80,24 @@ HTML_TEMPLATE = """
       {% endif %}
     {% endwith %}
 
-    <div class="box">
+        <div class="box">
         <form action="/add" method="POST">
             <label>Medicine Name:</label><br>
             <input type="text" name="name" required><br>
-            
+
             <label>Strip of:</label><br>
             <input type="number" name="capsules_per_strip" required><br>
-            
+
             <label>No. of Strips:</label><br>
             <input type="number" name="strips" required><br>
-            
+
             <label>No. of Days:</label><br>
             <input type="number" name="days" required><br>
-            
-            <button type="submit">Add Medicine</button>
+
+            <button type="submit" style="margin-top: 15px; width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">Add Medicine</button>
         </form>
     </div>
+    
 
     <h3>📋 Your Medicines List</h3>
     <div class="table-container">
