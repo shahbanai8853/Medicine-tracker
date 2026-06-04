@@ -452,3 +452,17 @@ def cron_check_reminders():
     # this is where the push backend sends data to user devices.
     return {"status": "success", "message": f"Reminders checked successfully for {today_str}"}, 200
     
+# =====================================================================
+# RENDER SE GOOGLE TAG AUTOMATIC JODNE VALA SYSTEM (PASTE AT THE VERY END)
+# =====================================================================
+import os
+
+# Render ke environment se automatic aapka code uthayega
+ENV_GOOGLE_CODE = os.getenv('GOOGLE_SITE_VERIFICATION', '')
+
+if ENV_GOOGLE_CODE:
+    # Google ke format me tag banayega
+    DYNAMIC_GOOGLE_TAG = f'<meta name="google-site-verification" content="{ENV_GOOGLE_CODE}" />'
+    # Bina beech ka code chede, automatic head me jod dega
+    HTML_TEMPLATE = HTML_TEMPLATE.replace("<head>", f"<head>{DYNAMIC_GOOGLE_TAG}")
+    
