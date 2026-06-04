@@ -10,7 +10,9 @@ except ImportError:
     from supabase import create_client, Client
 
 from flask import Flask, render_template_string, request, redirect, session, flash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+IST = timezone(timedelta(hours=5, minutes=30))
+
 import uuid
 
 app = Flask(__name__)
@@ -98,6 +100,11 @@ HTML_TEMPLATE = """
         </form>
     </div>
     
+   <!-- Google style Search Box by Shahban Bhai -->
+<div style="margin: 15px 0;">
+    <input type="text" id="shahbanSearch" onkeyup="searchTable()" placeholder="🔍 Search anything (User 1, Date, Strips, Days...)" style="width: 100%; padding: 12px; border: 2px solid #23e50; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; transition: 0.3s;">
+</div>
+
 
     <h3>📋 Your Medicines List</h3>
     <div class="table-container">
@@ -138,6 +145,31 @@ HTML_TEMPLATE = """
     <div class="ad-space">
         Responsive Ad Unit
     </div>
+
+    <script>
+function searchTable() {
+    let input = document.getElementById("shahbanSearch").value.toUpperCase();
+    let table = document.querySelector("table");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+        let rowText = tr[i].textContent || tr[i].innerText;
+        
+        if (input === "") {
+            // Agar search box khali hai toh sab normal dikhao
+            tr[i].style.display = "";
+            tr[i].style.backgroundColor = "";
+        } else if (rowText.toUpperCase().indexOf(input) > -1) {
+            // Agar match ho gaya toh row dikhao aur mast yellow highlight karo
+            tr[i].style.display = "";
+            tr[i].style.backgroundColor = "#fff9c4"; 
+        } else {
+            // Jo match nahi hua use chupa do
+            tr[i].style.display = "none";
+        }
+    }
+}
+</script>
 
     {% if is_admin %}
     <div class="admin-box">
@@ -261,7 +293,8 @@ def index():
     # Supabase se permanent data nikalna
     medicines = []
     try:
-        response = supabase.table("medicines").select("*").eq("user_id", uid).execute()
+        ```python
+  response = supabase.table("medicines").select("*").execute()
         medicines = response.data if response.data else []
     except Exception as e:
         print(f"Database Error: {e}")
@@ -290,8 +323,9 @@ def add():
         log_traffic(user_no, f"Failed Add (Error: Invalid Days)", name, f"{capsules_per_strip} caps", f"{strips} strip", f"{total_days} days", "N/A")
         return redirect('/')
         
-    added_dt = datetime.now().date()
-    end_dt = added_dt + timedelta(days=total_days)
+
+    added_dt = datetime.now(IST).date()
+
     
     formatted_added = added_dt.strftime('%d-%m-%Y')
     formatted_end = end_dt.strftime('%d-%m-%Y')
