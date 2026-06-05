@@ -564,7 +564,7 @@ def check_and_send_medicine_alerts(all_medicines):
     for med in all_medicines:
         if 'end_date' in med:
             try:
-                med_end_date = datetime.strptime(med['end_date'], "%Y-%m-%d").date()
+                med_end_date = datetime.strptime(med['end_date'], "%d-%m-%Y").date()
                 if med_end_date == tomorrow:
                     user = med.get('user_identity', 'User')
                     alert_text = "your medicine will empty Tommorow"
