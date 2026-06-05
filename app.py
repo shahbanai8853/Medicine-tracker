@@ -548,17 +548,47 @@ def check_and_trigger_medicine_alerts(all_users_medicines_data):
 # CODE ENDS HERE - SHAHBAN BHAI AAPKA SYSTEM SET HAI!
 # =====================================================================
 
+# =====================================================================
+# SHAHBAN BHAI, PURANA ALERT CODE HATA KAR YEH BALANCE CODE PASTE KARIYE
+# =====================================================================
+from datetime import datetime, timedelta
+
+def check_and_send_medicine_alerts(all_medicines):
+    """
+    Backend function: Dawa khatam hone se 1 din pehle check karne ke liye
+    """
+    today = datetime.now().date()
+    tomorrow = today + timedelta(days=1)
+    triggered_alerts = []
+    
+    for med in all_medicines:
+        if 'end_date' in med:
+            try:
+                med_end_date = datetime.strptime(med['end_date'], "%Y-%m-%d").date()
+                if med_end_date == tomorrow:
+                    user = med.get('user_identity', 'User')
+                    alert_text = "your medicine will empty Tommorow"
+                    print(f"[ALERT] Sent to {user}: {alert_text}")
+                    triggered_alerts.append({"user": user, "message": alert_text})
+            except Exception as e:
+                print("Date parse karne me error:", e)
+    return triggered_alerts
+
 @app.route('/trigger-alerts', methods=['GET', 'POST'])
 def trigger_alerts_endpoint():
     """
-    Cron-job is url par hit karega toh yeh chalega
+    Cron-job is URL par hit karega toh yeh rasta chalega
     """
     try:
-        # Agar aapka medicines data kisi global list ya database me hai, use yahan pass karein
-        # Abhi ke liye yeh function run hoga aur crash nahi karega
+        # Aapke system ke hisab se medicine list fetch karna
         all_meds = globals().get('medicines_list', []) or globals().get('medicines', [])
+        
+        # Function ko call karna
         alerts = check_and_send_medicine_alerts(all_meds)
         return {"status": "success", "alerts_sent": len(alerts)}, 200
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
-        
+# =====================================================================
+# CODE ENDS HERE
+# =====================================================================
+
