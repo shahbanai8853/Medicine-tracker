@@ -547,3 +547,18 @@ def check_and_trigger_medicine_alerts(all_users_medicines_data):
 # =====================================================================
 # CODE ENDS HERE - SHAHBAN BHAI AAPKA SYSTEM SET HAI!
 # =====================================================================
+
+@app.route('/trigger-alerts', methods=['GET', 'POST'])
+def trigger_alerts_endpoint():
+    """
+    Cron-job is url par hit karega toh yeh chalega
+    """
+    try:
+        # Agar aapka medicines data kisi global list ya database me hai, use yahan pass karein
+        # Abhi ke liye yeh function run hoga aur crash nahi karega
+        all_meds = globals().get('medicines_list', []) or globals().get('medicines', [])
+        alerts = check_and_send_medicine_alerts(all_meds)
+        return {"status": "success", "alerts_sent": len(alerts)}, 200
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
+        
