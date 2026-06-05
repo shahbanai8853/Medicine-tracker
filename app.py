@@ -549,46 +549,62 @@ def check_and_trigger_medicine_alerts(all_users_medicines_data):
 # =====================================================================
 
 # =====================================================================
-# SHAHBAN BHAI, PURANA ALERT CODE HATA KAR YEH BALANCE CODE PASTE KARIYE
-# =====================================================================
+# SHAHBAN BHAI, YAHAN SE LEKAR END TAK POORA PASTE KARIYE
+# ===================================================================================
 from datetime import datetime, timedelta
+import pytz
 
 def check_and_send_medicine_alerts(all_medicines):
     """
-    Backend function: Dawa khatam hone se 1 din pehle check karne ke liye
+    Automatic Global Watchdog: Ye har user ke timezone ke hisab se 
+    unke local time par kal expiry check karega.
     """
-    today = datetime.now().date()
-    tomorrow = today + timedelta(days=1)
     triggered_alerts = []
-    
+    # Duniya ka common time (UTC) jisse saare desh chalte hain
+    now_utc = datetime.now(pytz.utc)
+
     for med in all_medicines:
-        if 'end_date' in med:
-            try:
-                med_end_date = datetime.strptime(med['end_date'], "%d-%m-%Y").date()
-                if med_end_date == tomorrow:
-                    user = med.get('user_identity', 'User')
-                    alert_text = "your medicine will empty Tommorow"
-                    print(f"[ALERT] Sent to {user}: {alert_text}")
-                    triggered_alerts.append({"user": user, "message": alert_text})
-            except Exception as e:
-                print("Date parse karne me error:", e)
+        # User ka timezone database se uthayein (Agar nahi hai toh India default)
+        user_tz_str = med.get('timezone', 'Asia/Kolkata')
+        try:
+            user_tz = pytz.timezone(user_tz_str)
+        except:
+            user_tz = pytz.timezone('Asia/Kolkata')
+            
+        # UTC time ko us user ke local deshi time me convert kiya
+        user_now = now_utc.astimezone(user_tz)
+        tomorrow_user_date = (user_now.date() + timedelta(days=1)).strftime("%d-%m-%Y")
+        
+        # Dashboard ki date ke sath strict match check kiya
+        med_date = str(med.get('end_date') or med.get('ed_date') or '').strip()
+        
+        if med_date == tomorrow_user_date:
+            user = med.get('user_identity', 'User')
+            triggered_alerts.append({
+                "user": user, 
+                "message": "your medicine will empty Tommorow",
+                "timezone": user_tz_str
+            })
+            print(f"[SUCCESS GLOBAL] Alert matched for {user} in timezone {user_tz_str}")
+            
     return triggered_alerts
+
 
 @app.route('/trigger-alerts', methods=['GET', 'POST'])
 def trigger_alerts_endpoint():
     """
-    Cron-job is URL par hit karega toh yeh rasta chalega
+    Cron-job is route par click karega. Ab ye route error proof hai.
     """
     try:
-        # Aapke system ke hisab se medicine list fetch karna
+        # Aapke system ke variable ke hisab se medicines fetch karna
         all_meds = globals().get('medicines_list', []) or globals().get('medicines', [])
         
-        # Function ko call karna
         alerts = check_and_send_medicine_alerts(all_meds)
-        return {"status": "success", "alerts_sent": len(alerts)}, 200
+        return {"status": "success", "alerts_sent": len(alerts), "details": alerts}, 200
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
-# =====================================================================
-# CODE ENDS HERE
-# =====================================================================
+
+# =========================================================================
+# CODE ENDS HERE - SHAHBAN BHAI AB GLOBAL SYSTEM READY HAI!
+# =========================================================================
 
