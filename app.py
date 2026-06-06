@@ -609,15 +609,15 @@ def trigger_alerts_endpoint():
 # =========================================================================
 
 # =====================================================================
-# SHAHBAN BHAI, GOOGLE ADSENSE CODE INJECTION (PASTE AT THE END)
+# SHAHBAN BHAI, METER TAG VERIFICATION CODE (PASTE AT THE END)
 # =====================================================================
 
-ADSENSE_VERIFICATION_CODE = """
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3966926726161029"
-     crossorigin="anonymous"></script>
+# Jo asli Meta Tag aapko mila hai, use humne yahan variable me rakh diya hai
+GOOGLE_META_TAG = """
+<meta name="google-adsense-account" content="ca-pub-3966916706161009">
 """
 
-# Yeh line Google ke code ko aapki website ke <head> tag me automatic fit kar degi
+# Yeh line is meta tag ko aapki website ke <head> section me automatic inject kar degi
 if 'HTML_TEMPLATE' in globals():
-    HTML_TEMPLATE = HTML_TEMPLATE.replace("<head>", f"<head>{ADSENSE_VERIFICATION_CODE}")
+    HTML_TEMPLATE = HTML_TEMPLATE.replace("<head>", f"<head>{GOOGLE_META_TAG}")
     
