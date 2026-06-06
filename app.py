@@ -608,3 +608,16 @@ def trigger_alerts_endpoint():
 # CODE ENDS HERE - SHAHBAN BHAI AB GLOBAL SYSTEM READY HAI!
 # =========================================================================
 
+# =====================================================================
+# SHAHBAN BHAI, GOOGLE ADSENSE CODE INJECTION (PASTE AT THE END)
+# =====================================================================
+
+ADSENSE_VERIFICATION_CODE = """
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3966926726161029"
+     crossorigin="anonymous"></script>
+"""
+
+# Yeh line Google ke code ko aapki website ke <head> tag me automatic fit kar degi
+if 'HTML_TEMPLATE' in globals():
+    HTML_TEMPLATE = HTML_TEMPLATE.replace("<head>", f"<head>{ADSENSE_VERIFICATION_CODE}")
+    
