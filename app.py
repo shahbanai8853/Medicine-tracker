@@ -621,3 +621,132 @@ GOOGLE_META_TAG = """
 if 'HTML_TEMPLATE' in globals():
     HTML_TEMPLATE = HTML_TEMPLATE.replace("<head>", f"<head>{GOOGLE_META_TAG}")
     
+
+# =====================================================================
+# SHAHBAN BHAI AUTOMATIC FOOTER & ADSENSE SYSTEM (PASTE AT THE VERY END)
+# =====================================================================
+from flask import render_template_string
+
+# 1. APPLICATION POLICIES ROUTES (AdSense Mandatory Pages)
+
+@app.route('/privacy-policy')
+def privacy_policy():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Privacy Policy - Medicine Stock Reminder</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; color: #333; background: #f9f9f9; }
+            .container { max-width: 800px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            h1 { color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+            h2 { color: #34495e; margin-top: 20px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Privacy Policy</h1>
+            <p>Last updated: June 2026</p>
+            <p>Welcome to Medicine Stock Reminder. We care about your privacy and want to be transparent about how we handle data.</p>
+            <h2>1. Information We Collect</h2>
+            <p>We do not require any personal identification or user registration. Any medicine names or country timezones you input are processed securely via Supabase infrastructure.</p>
+            <h2>2. Cookies & Ads</h2>
+            <p>We use Google AdSense to serve ads. Google uses cookies to serve ads based on your prior visits to this website.</p>
+            <h2>3. Contact Us</h2>
+            <p>Email: admin@shahbantracker.com</p>
+        </div>
+    </body>
+    </html>
+    """
+    return render_template_string(html_content)
+
+
+@app.route('/terms-of-service')
+def terms_of_service():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Terms of Service</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; color: #333; background: #f9f9f9; }
+            .container { max-width: 800px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            h1 { color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Terms of Service</h1>
+            <p>Welcome to Medicine Stock Reminder. By using our web tool, you agree to these terms.</p>
+            <p>This tool is for tracking purposes and should not replace professional medical advice.</p>
+        </div>
+    </body>
+    </html>
+    """
+    return render_template_string(html_content)
+
+
+@app.route('/contact')
+def contact_page():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Contact Us</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; color: #333; background: #f9f9f9; }
+            .container { max-width: 800px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            h1 { color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Contact Us</h1>
+            <p>If you have any feedback or questions, reach out to us:</p>
+            <p><strong>📩 Email Support:</strong> admin@shahbantracker.com</p>
+        </div>
+    </body>
+    </html>
+    """
+    return render_template_string(html_content)
+
+
+# 2. AUTOMATIC JAVASCRIPT FOOTER INJECTOR
+# Yeh function bina HTML file khole, automatic website ke end me links aur user guide chipka dega.
+
+@app.after_request
+def auto_inject_footer_and_content(response):
+    # Agar content HTML hai, sirf tabhi inject karein
+    if response.mimetype == 'text/html' and response.status_code == 200:
+        data = response.get_data(as_text=True)
+        
+        # Google AdSense ke liye high-value content aur footer links ka design
+        footer_html = """
+        <div style="max-width: 600px; margin: 40px auto 20px auto; padding: 20px; font-family: Arial, sans-serif; text-align: left; background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; color: #555; line-height: 1.5; font-size: 14px;">
+            <h4 style="margin-top: 0; color: #333;">Why Track Your Medicine Supply?</h4>
+            <p>Consistency is key to effective treatment. This Medicine Stock Reminder calculates your remaining supply and helps prevent last-minute emergencies by providing dynamic 1-day advance alerts synced to your local country timezone.</p>
+        </div>
+        <footer style="margin: 20px 0 40px 0; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #777;">
+            <a href="/privacy-policy" target="_blank" style="color: #007bff; text-decoration: none; margin: 0 10px;">Privacy Policy</a> | 
+            <a href="/terms-of-service" target="_blank" style="color: #007bff; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
+            <a href="/contact" target="_blank" style="color: #007bff; text-decoration: none; margin: 0 10px;">Contact Us</a>
+        </footer>
+        </body>
+        """
+        
+        # HTML ke </body> tag se theek pehle ise automatic joad dena
+        if '</body>' in data:
+            data = data.replace('</body>', footer_html)
+            response.set_data(data)
+            
+    return response
+
+# =====================================================================
+# CODE ENDS HERE - AB HTML CHHEDNE KI KOI ZAROORAT NAHI HAI!
+# =====================================================================
