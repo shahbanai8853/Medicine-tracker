@@ -655,7 +655,7 @@ def privacy_policy():
             <h2>2. Cookies & Ads</h2>
             <p>We use Google AdSense to serve ads. Google uses cookies to serve ads based on your prior visits to this website.</p>
             <h2>3. Contact Us</h2>
-            <p>Email: admin@shahbantracker.com</p>
+            <p>Email: shahbanai8853@gmail.com</p>
         </div>
     </body>
     </html>
@@ -709,7 +709,8 @@ def contact_page():
         <div class="container">
             <h1>Contact Us</h1>
             <p>If you have any feedback or questions, reach out to us:</p>
-            <p><strong>📩 Email Support:</strong> admin@shahbantracker.com</p>
+            <p><strong>📩 Email Support:</strong> shahbanai8853@gmail.com</p>
+            <p><strong>WhatsApp support:</strong> 8853689596</p>
         </div>
     </body>
     </html>
